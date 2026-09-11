@@ -26,3 +26,6 @@ class TextSampler:
             self._database.insert_lines(batch)
 
         return line_count
+
+    def sample(self, count: int) -> list[str]:
+        return self._database.sample_lines(count)

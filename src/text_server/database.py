@@ -25,5 +25,48 @@ class Database:
         )
         self._connection.commit()
 
+    def sample_lines(self, count: int) -> list[str]:
+        if count <= 0:
+            return []
+
+        cursor = self._connection.cursor()
+
+        try:
+            cursor.execute("BEGIN IMMEDIATE")
+
+            rows = cursor.execute(
+                """
+                SELECT id, content
+                FROM lines
+                ORDER BY RANDOM()
+                LIMIT ?
+                """,
+                (count,),
+            ).fetchall()
+
+            if rows:
+                ids = [row[0] for row in rows]
+                placeholders = ",".join("?" for _ in ids)
+
+                cursor.execute(
+                    f"DELETE FROM lines WHERE id IN ({placeholders})",
+                    ids,
+                )
+
+            self._connection.commit()
+
+            return [row[1] for row in rows]
+
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def count_lines(self) -> int:
+        result = self._connection.execute(
+            "SELECT COUNT(*) FROM lines"
+        ).fetchone()
+
+        return result[0]
+
     def close(self) -> None:
         self._connection.close()
