@@ -21,7 +21,6 @@ class TextServer:
         self._host = host
         self._port = port
         self._server_socket: socket.socket | None = None
-        self._running = False
         self._stop_event = threading.Event()
 
     @property
@@ -52,7 +51,6 @@ class TextServer:
 
         self._server_socket = server_socket
         self._stop_event.clear()
-        self._running = True
 
         logger.info(
             "Server listening on %s:%d",
@@ -83,7 +81,6 @@ class TextServer:
             client_thread.start()
 
     def shutdown(self) -> None:
-        self._running = False
         self._stop_event.set()
 
         if self._server_socket is not None:

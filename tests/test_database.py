@@ -9,17 +9,9 @@ def test_database_creates_lines_table(tmp_path):
     db = Database(db_path)
     db.initialize()
 
-    result = db._connection.execute(
-        """
-        SELECT name
-        FROM sqlite_master
-        WHERE type = 'table' AND name = 'lines'
-        """
-    ).fetchone()
+    assert db.count_lines() == 0
 
     db.close()
-
-    assert result is not None
 
 
 def test_insert_lines(tmp_path):
@@ -110,6 +102,7 @@ def test_sample_lines_handles_duplicate_content(tmp_path):
     assert db.count_lines() == 1
 
     db.close()
+
 
 def test_concurrent_sampling_does_not_return_duplicate_rows(tmp_path):
     db_path = tmp_path / "test.db"

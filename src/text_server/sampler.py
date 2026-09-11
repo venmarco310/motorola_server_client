@@ -6,10 +6,6 @@ from text_server.database import Database
 
 logger = logging.getLogger(__name__)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
 
 class TextSampler:
     def __init__(self, database: Database) -> None:
