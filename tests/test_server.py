@@ -611,3 +611,87 @@ def test_server_loads_and_samples_file(tmp_path):
             "third line",
         }
     )
+
+def test_server_returns_error_for_non_object_json(tmp_path):
+    db_path = tmp_path / "test.db"
+
+    server = TextServer(
+        database_path=str(db_path),
+        host="127.0.0.1",
+        port=0,
+    )
+
+    server.start()
+
+    server_thread = threading.Thread(
+        target=server.serve_forever,
+        daemon=True,
+    )
+    server_thread.start()
+
+    host, port = server.address
+
+    try:
+        with socket.create_connection((host, port)) as client:
+            client.sendall(b'["sample", 10]\n')
+
+            response = client.makefile(
+                "r",
+                encoding="utf-8",
+            ).readline()
+
+            response = json.loads(response)
+
+            assert response == {
+                "status": "error",
+                "message": "Request must be a JSON object",
+            }
+    finally:
+        server.shutdown()
+        server_thread.join(timeout=1)
+
+
+def test_server_returns_error_when_file_does_not_exist(tmp_path):
+    db_path = tmp_path / "test.db"
+
+    server = TextServer(
+        database_path=str(db_path),
+        host="127.0.0.1",
+        port=0,
+    )
+
+    server.start()
+
+    server_thread = threading.Thread(
+        target=server.serve_forever,
+        daemon=True,
+    )
+    server_thread.start()
+
+    host, port = server.address
+
+    try:
+        with socket.create_connection((host, port)) as client:
+            request = {
+                "action": "load",
+                "path": str(tmp_path / "does_not_exist.txt"),
+            }
+
+            client.sendall(
+                (json.dumps(request) + "\n").encode("utf-8")
+            )
+
+            response = client.makefile(
+                "r",
+                encoding="utf-8",
+            ).readline()
+
+            response = json.loads(response)
+
+            assert response == {
+                "status": "error",
+                "message": "File not found",
+            }
+    finally:
+        server.shutdown()
+        server_thread.join(timeout=1)

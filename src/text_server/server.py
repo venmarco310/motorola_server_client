@@ -109,14 +109,28 @@ class TextServer:
                 for line in file:
                     try:
                         request = json.loads(line)
-                        response = self._handle_request(
-                            request,
-                            sampler,
-                        )
+
+                        if not isinstance(request, dict):
+                            response = {
+                                "status": "error",
+                                "message": "Request must be a JSON object",
+                            }
+                        else:
+                            response = self._handle_request(
+                                request,
+                                sampler,
+                            )
+
                     except json.JSONDecodeError:
                         response = {
                             "status": "error",
                             "message": "Invalid JSON",
+                        }
+
+                    except FileNotFoundError:
+                        response = {
+                            "status": "error",
+                            "message": "File not found",
                         }
 
                     output.write(json.dumps(response) + "\n")
