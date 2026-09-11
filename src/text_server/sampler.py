@@ -1,7 +1,15 @@
+import logging
 from pathlib import Path
 
 from text_server.database import Database
 
+
+logger = logging.getLogger(__name__)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 class TextSampler:
     def __init__(self, database: Database) -> None:
@@ -12,6 +20,8 @@ class TextSampler:
         line_count = 0
         batch = []
         batch_size = 1000
+
+        logger.info("Loading file: %s", file_path)
 
         with file_path.open("r", encoding="utf-8") as file:
             for line in file:
@@ -25,7 +35,17 @@ class TextSampler:
         if batch:
             self._database.insert_lines(batch)
 
+        logger.info("Loaded %d lines from %s", line_count, file_path)
+
         return line_count
 
     def sample(self, count: int) -> list[str]:
-        return self._database.sample_lines(count)
+        sampled = self._database.sample_lines(count)
+
+        logger.info(
+            "Sampled %d lines (requested %d)",
+            len(sampled),
+            count,
+        )
+
+        return sampled

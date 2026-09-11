@@ -1,5 +1,9 @@
+import logging
 import sqlite3
 from pathlib import Path
+
+
+logger = logging.getLogger(__name__)
 
 
 class Database:
@@ -24,6 +28,8 @@ class Database:
             [(line,) for line in lines],
         )
         self._connection.commit()
+
+        logger.debug("Inserted %d lines", len(lines))
 
     def sample_lines(self, count: int) -> list[str]:
         if count <= 0:
@@ -54,6 +60,8 @@ class Database:
                 )
 
             self._connection.commit()
+
+            logger.debug("Consumed %d lines", len(rows))
 
             return [row[1] for row in rows]
 
