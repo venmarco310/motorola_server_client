@@ -131,6 +131,12 @@ class TextServer:
         action = request.get("action")
 
         if action == "load":
+            if "path" not in request:
+                return {
+                    "status": "error",
+                    "message": "Missing field: path",
+                }
+
             count = sampler.load(request["path"])
 
             return {
@@ -139,7 +145,21 @@ class TextServer:
             }
 
         if action == "sample":
-            lines = sampler.sample(request["count"])
+            if "count" not in request:
+                return {
+                    "status": "error",
+                    "message": "Missing field: count",
+                }
+
+            count = request["count"]
+
+            if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+                return {
+                    "status": "error",
+                    "message": "count must be a non-negative integer",
+                }
+
+            lines = sampler.sample(count)
 
             return {
                 "status": "ok",

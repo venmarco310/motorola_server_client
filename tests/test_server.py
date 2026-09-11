@@ -319,3 +319,193 @@ def test_server_continues_after_malformed_request(tmp_path):
         "status": "ok",
         "lines": ["test line"],
     }
+
+def test_server_returns_error_when_sample_count_is_missing(tmp_path):
+    db_path = tmp_path / "test.db"
+
+    database = Database(db_path)
+    database.initialize()
+    database.close()
+
+    server = TextServer(
+        database_path=str(db_path),
+        host="127.0.0.1",
+        port=0,
+    )
+
+    server.start()
+
+    server_thread = threading.Thread(
+        target=server.serve_forever,
+        daemon=True,
+    )
+    server_thread.start()
+
+    host, port = server.address
+
+    with socket.create_connection((host, port)) as client:
+        client_file = client.makefile(
+            "rw",
+            encoding="utf-8",
+        )
+
+        request = {
+            "action": "sample",
+        }
+
+        client_file.write(json.dumps(request) + "\n")
+        client_file.flush()
+
+        response = json.loads(client_file.readline())
+
+        client_file.close()
+
+    server.shutdown()
+
+    assert response == {
+        "status": "error",
+        "message": "Missing field: count",
+    }
+
+def test_server_returns_error_when_load_path_is_missing(tmp_path):
+    db_path = tmp_path / "test.db"
+
+    database = Database(db_path)
+    database.initialize()
+    database.close()
+
+    server = TextServer(
+        database_path=str(db_path),
+        host="127.0.0.1",
+        port=0,
+    )
+
+    server.start()
+
+    server_thread = threading.Thread(
+        target=server.serve_forever,
+        daemon=True,
+    )
+    server_thread.start()
+
+    host, port = server.address
+
+    with socket.create_connection((host, port)) as client:
+        client_file = client.makefile(
+            "rw",
+            encoding="utf-8",
+        )
+
+        request = {
+            "action": "load",
+        }
+
+        client_file.write(json.dumps(request) + "\n")
+        client_file.flush()
+
+        response = json.loads(client_file.readline())
+
+        client_file.close()
+
+    server.shutdown()
+
+    assert response == {
+        "status": "error",
+        "message": "Missing field: path",
+    }
+
+def test_server_returns_error_for_invalid_sample_count(tmp_path):
+    db_path = tmp_path / "test.db"
+
+    database = Database(db_path)
+    database.initialize()
+    database.close()
+
+    server = TextServer(
+        database_path=str(db_path),
+        host="127.0.0.1",
+        port=0,
+    )
+
+    server.start()
+
+    server_thread = threading.Thread(
+        target=server.serve_forever,
+        daemon=True,
+    )
+    server_thread.start()
+
+    host, port = server.address
+
+    with socket.create_connection((host, port)) as client:
+        client_file = client.makefile(
+            "rw",
+            encoding="utf-8",
+        )
+
+        request = {
+            "action": "sample",
+            "count": "five",
+        }
+
+        client_file.write(json.dumps(request) + "\n")
+        client_file.flush()
+
+        response = json.loads(client_file.readline())
+
+        client_file.close()
+
+    server.shutdown()
+
+    assert response == {
+        "status": "error",
+        "message": "count must be a non-negative integer",
+    }
+
+def test_server_returns_error_for_negative_sample_count(tmp_path):
+    db_path = tmp_path / "test.db"
+
+    database = Database(db_path)
+    database.initialize()
+    database.close()
+
+    server = TextServer(
+        database_path=str(db_path),
+        host="127.0.0.1",
+        port=0,
+    )
+
+    server.start()
+
+    server_thread = threading.Thread(
+        target=server.serve_forever,
+        daemon=True,
+    )
+    server_thread.start()
+
+    host, port = server.address
+
+    with socket.create_connection((host, port)) as client:
+        client_file = client.makefile(
+            "rw",
+            encoding="utf-8",
+        )
+
+        request = {
+            "action": "sample",
+            "count": -1,
+        }
+
+        client_file.write(json.dumps(request) + "\n")
+        client_file.flush()
+
+        response = json.loads(client_file.readline())
+
+        client_file.close()
+
+    server.shutdown()
+
+    assert response == {
+        "status": "error",
+        "message": "count must be a non-negative integer",
+    }
