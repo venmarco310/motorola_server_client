@@ -18,5 +18,12 @@ class Database:
         )
         self._connection.commit()
 
+    def insert_line(self, content: str) -> None:
+        self._connection.execute(
+            "INSERT INTO lines (content) VALUES (?)",
+            (content,),
+        )
+        self._connection.commit()
+
     def close(self) -> None:
         self._connection.close()
