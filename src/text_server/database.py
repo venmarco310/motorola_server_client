@@ -18,10 +18,10 @@ class Database:
         )
         self._connection.commit()
 
-    def insert_line(self, content: str) -> None:
-        self._connection.execute(
+    def insert_lines(self, lines: list[str]) -> None:
+        self._connection.executemany(
             "INSERT INTO lines (content) VALUES (?)",
-            (content,),
+            [(line,) for line in lines],
         )
         self._connection.commit()
 
