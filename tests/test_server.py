@@ -509,3 +509,29 @@ def test_server_returns_error_for_negative_sample_count(tmp_path):
         "status": "error",
         "message": "count must be a non-negative integer",
     }
+
+def test_server_stops_after_shutdown(tmp_path):
+    db_path = tmp_path / "test.db"
+
+    database = Database(db_path)
+    database.initialize()
+    database.close()
+
+    server = TextServer(
+        database_path=str(db_path),
+        host="127.0.0.1",
+        port=0,
+    )
+
+    server.start()
+
+    server_thread = threading.Thread(
+        target=server.serve_forever,
+    )
+    server_thread.start()
+
+    server.shutdown()
+
+    server_thread.join(timeout=1)
+
+    assert not server_thread.is_alive()

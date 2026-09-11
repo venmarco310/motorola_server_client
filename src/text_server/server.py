@@ -22,6 +22,7 @@ class TextServer:
         self._port = port
         self._server_socket: socket.socket | None = None
         self._running = False
+        self._stop_event = threading.Event()
 
     @property
     def address(self) -> tuple[str, int]:
@@ -47,8 +48,10 @@ class TextServer:
 
         server_socket.bind((self._host, self._port))
         server_socket.listen()
+        server_socket.settimeout(0.1)
 
         self._server_socket = server_socket
+        self._stop_event.clear()
         self._running = True
 
         logger.info(
@@ -61,9 +64,11 @@ class TextServer:
         if self._server_socket is None:
             raise RuntimeError("Server has not started")
 
-        while self._running:
+        while not self._stop_event.is_set():
             try:
                 client_socket, client_address = self._server_socket.accept()
+            except socket.timeout:
+                continue
             except OSError:
                 break
 
@@ -79,10 +84,10 @@ class TextServer:
 
     def shutdown(self) -> None:
         self._running = False
+        self._stop_event.set()
 
         if self._server_socket is not None:
             logger.info("Shutting down server")
-
             self._server_socket.close()
             self._server_socket = None
 
