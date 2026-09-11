@@ -535,3 +535,79 @@ def test_server_stops_after_shutdown(tmp_path):
     server_thread.join(timeout=1)
 
     assert not server_thread.is_alive()
+
+def test_server_loads_and_samples_file(tmp_path):
+    db_path = tmp_path / "test.db"
+    input_path = tmp_path / "input.txt"
+
+    input_path.write_text(
+        "first line\n"
+        "second line\n"
+        "third line\n",
+        encoding="utf-8",
+    )
+
+    database = Database(db_path)
+    database.initialize()
+    database.close()
+
+    server = TextServer(
+        database_path=str(db_path),
+        host="127.0.0.1",
+        port=0,
+    )
+
+    server.start()
+
+    server_thread = threading.Thread(
+        target=server.serve_forever,
+        daemon=True,
+    )
+    server_thread.start()
+
+    host, port = server.address
+
+    with socket.create_connection((host, port)) as client:
+        client_file = client.makefile(
+            "rw",
+            encoding="utf-8",
+        )
+
+        load_request = {
+            "action": "load",
+            "path": str(input_path),
+        }
+
+        client_file.write(json.dumps(load_request) + "\n")
+        client_file.flush()
+
+        load_response = json.loads(client_file.readline())
+
+        sample_request = {
+            "action": "sample",
+            "count": 2,
+        }
+
+        client_file.write(json.dumps(sample_request) + "\n")
+        client_file.flush()
+
+        sample_response = json.loads(client_file.readline())
+
+        client_file.close()
+
+    server.shutdown()
+
+    assert load_response == {
+        "status": "ok",
+        "count": 3,
+    }
+
+    assert sample_response["status"] == "ok"
+    assert len(sample_response["lines"]) == 2
+    assert set(sample_response["lines"]).issubset(
+        {
+            "first line",
+            "second line",
+            "third line",
+        }
+    )
