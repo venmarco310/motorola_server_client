@@ -1,6 +1,7 @@
 import json
 import logging
 import socket
+import threading
 
 from text_server.database import Database
 from text_server.sampler import TextSampler
@@ -60,23 +61,21 @@ class TextServer:
         if self._server_socket is None:
             raise RuntimeError("Server has not started")
 
-        database = Database(self._database_path)
-        database.initialize()
+        while self._running:
+            try:
+                client_socket, client_address = self._server_socket.accept()
+            except OSError:
+                break
 
-        sampler = TextSampler(database)
+            logger.info("Client connected: %s", client_address)
 
-        try:
-            while self._running:
-                try:
-                    client_socket, client_address = self._server_socket.accept()
-                except OSError:
-                    break
+            client_thread = threading.Thread(
+                target=self._handle_client,
+                args=(client_socket,),
+                daemon=True,
+            )
 
-                logger.info("Client connected: %s", client_address)
-
-                self._handle_client(client_socket, sampler)
-        finally:
-            database.close()
+            client_thread.start()
 
     def shutdown(self) -> None:
         self._running = False
@@ -87,21 +86,42 @@ class TextServer:
             self._server_socket.close()
             self._server_socket = None
 
-    def _handle_client(
-        self,
-        client_socket: socket.socket,
-        sampler: TextSampler,
-    ) -> None:
-        with client_socket:
-            file = client_socket.makefile("r", encoding="utf-8")
-            output = client_socket.makefile("w", encoding="utf-8")
+    def _handle_client(self, client_socket: socket.socket) -> None:
+        database = Database(self._database_path)
+        database.initialize()
 
-            for line in file:
-                request = json.loads(line)
-                response = self._handle_request(request, sampler)
+        sampler = TextSampler(database)
 
-                output.write(json.dumps(response) + "\n")
-                output.flush()
+        try:
+            with client_socket:
+                file = client_socket.makefile(
+                    "r",
+                    encoding="utf-8",
+                )
+
+                output = client_socket.makefile(
+                    "w",
+                    encoding="utf-8",
+                )
+
+                for line in file:
+                    try:
+                        request = json.loads(line)
+                        response = self._handle_request(
+                            request,
+                            sampler,
+                        )
+                    except json.JSONDecodeError:
+                        response = {
+                            "status": "error",
+                            "message": "Invalid JSON",
+                        }
+
+                    output.write(json.dumps(response) + "\n")
+                    output.flush()
+
+        finally:
+            database.close()
 
     def _handle_request(
         self,
