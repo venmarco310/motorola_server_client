@@ -136,3 +136,134 @@ def test_client_rejects_invalid_sample_count(tmp_path):
         client.close()
         server.shutdown()
         server_thread.join(timeout=1)
+
+def test_two_clients_sample_concurrently_without_duplicate_lines(tmp_path):
+    file_path = tmp_path / "sample.txt"
+
+    lines = [f"line {i}" for i in range(100)]
+    file_path.write_text(
+        "\n".join(lines),
+        encoding="utf-8",
+    )
+
+    server, server_thread = start_server(tmp_path)
+
+    host, port = server.address
+
+    client1 = TextClient(host, port)
+    client2 = TextClient(host, port)
+
+    barrier = threading.Barrier(2)
+    results = []
+
+    def sample_with_client(client):
+        client.connect()
+
+        try:
+            barrier.wait()
+
+            sampled = client.sample(50)
+            results.append(sampled)
+        finally:
+            client.close()
+
+    thread1 = threading.Thread(
+        target=sample_with_client,
+        args=(client1,),
+    )
+
+    thread2 = threading.Thread(
+        target=sample_with_client,
+        args=(client2,),
+    )
+
+    try:
+        # Load the data before starting the concurrent sampling.
+        loader = TextClient(host, port)
+
+        try:
+            loader.connect()
+            assert loader.load(file_path) == 100
+        finally:
+            loader.close()
+
+        thread1.start()
+        thread2.start()
+
+        thread1.join()
+        thread2.join()
+
+        sampled_lines = results[0] + results[1]
+
+        assert len(sampled_lines) == 100
+        assert len(set(sampled_lines)) == 100
+
+    finally:
+        server.shutdown()
+        server_thread.join(timeout=1)
+
+def test_ten_clients_sample_concurrently_without_duplicate_lines(tmp_path):
+    file_path = tmp_path / "sample.txt"
+
+    lines = [f"line {i}" for i in range(100)]
+    file_path.write_text(
+        "\n".join(lines),
+        encoding="utf-8",
+    )
+
+    server, server_thread = start_server(tmp_path)
+
+    host, port = server.address
+
+    barrier = threading.Barrier(10)
+    results = []
+    results_lock = threading.Lock()
+
+    def sample_with_client():
+        client = TextClient(host, port)
+
+        try:
+            client.connect()
+
+            barrier.wait()
+
+            sampled = client.sample(10)
+
+            with results_lock:
+                results.append(sampled)
+
+        finally:
+            client.close()
+
+    threads = [
+        threading.Thread(target=sample_with_client)
+        for _ in range(10)
+    ]
+
+    try:
+        loader = TextClient(host, port)
+
+        try:
+            loader.connect()
+            assert loader.load(file_path) == 100
+        finally:
+            loader.close()
+
+        for thread in threads:
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        sampled_lines = [
+            line
+            for result in results
+            for line in result
+        ]
+
+        assert len(sampled_lines) == 100
+        assert len(set(sampled_lines)) == 100
+
+    finally:
+        server.shutdown()
+        server_thread.join(timeout=1)
