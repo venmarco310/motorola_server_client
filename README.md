@@ -117,6 +117,7 @@ The test suite covers:
 * Concurrent clients
 
 ## Run with Real Data
+NOTE: If you are running with the same text file, remeber to delete the SQLite database to refresh the cache. If not, you will have redundant data when reingesting. 
 
 The implementation was tested with the [Cornell Movie-Dialogs Corpus](https://www.cs.cornell.edu/~cristian/Cornell_Movie-Dialogs_Corpus.html).
 
@@ -173,6 +174,10 @@ python .\manual_test.py
 
 This provides a simple way to test loading and sampling behavior with substantially larger datasets.
 
+```powershell
+python .\concurency_test.py
+```
+This provides a way to ingest data and test out multiple clients accessing the data. You can configure with any text file you want. 
 
 ## Using the Server
 
@@ -295,7 +300,7 @@ Sampling is performed as an atomic database operation:
 
 1. Begin an immediate transaction.
 2. Select random rows.
-3. Delete the selected rows.
+3. Delete the selected rows in batches.
 4. Commit the transaction.
 5. Return the selected lines.
 
