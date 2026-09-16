@@ -9,7 +9,14 @@ logger = logging.getLogger(__name__)
 class Database:
     def __init__(self, db_path: str | Path) -> None:
         self._db_path = Path(db_path)
-        self._connection = sqlite3.connect(self._db_path)
+        self._connection = sqlite3.connect(
+            self._db_path,
+            timeout=30,
+        )
+
+        self._connection.execute(
+            "PRAGMA busy_timeout = 30000"
+        )
 
     def initialize(self) -> None:
         self._connection.execute(
@@ -52,12 +59,18 @@ class Database:
 
             if rows:
                 ids = [row[0] for row in rows]
-                placeholders = ",".join("?" for _ in ids)
 
-                cursor.execute(
-                    f"DELETE FROM lines WHERE id IN ({placeholders})",
-                    ids,
-                )
+                delete_batch_size = 1000
+
+                for start in range(0, len(ids), delete_batch_size):
+                    batch_ids = ids[start:start + delete_batch_size]
+
+                    placeholders = ",".join("?" for _ in batch_ids)
+
+                    cursor.execute(
+                        f"DELETE FROM lines WHERE id IN ({placeholders})",
+                        batch_ids,
+                    )
 
             self._connection.commit()
 

@@ -202,7 +202,7 @@ def test_two_clients_sample_concurrently_without_duplicate_lines(tmp_path):
         server.shutdown()
         server_thread.join(timeout=1)
 
-def test_ten_clients_sample_concurrently_without_duplicate_lines(tmp_path):
+def test_ten_clients_sample_concurrently_without_database_lock_errors(tmp_path):
     file_path = tmp_path / "sample.txt"
 
     lines = [f"line {i}" for i in range(100)]
@@ -217,6 +217,7 @@ def test_ten_clients_sample_concurrently_without_duplicate_lines(tmp_path):
 
     barrier = threading.Barrier(10)
     results = []
+    errors = []
     results_lock = threading.Lock()
 
     def sample_with_client():
@@ -225,12 +226,18 @@ def test_ten_clients_sample_concurrently_without_duplicate_lines(tmp_path):
         try:
             client.connect()
 
+            # Make all clients wait until they are connected,
+            # then release them at approximately the same time.
             barrier.wait()
 
             sampled = client.sample(10)
 
             with results_lock:
                 results.append(sampled)
+
+        except Exception as exc:
+            with results_lock:
+                errors.append(exc)
 
         finally:
             client.close()
@@ -241,6 +248,7 @@ def test_ten_clients_sample_concurrently_without_duplicate_lines(tmp_path):
     ]
 
     try:
+        # Load the data before starting the concurrent clients.
         loader = TextClient(host, port)
 
         try:
@@ -253,7 +261,13 @@ def test_ten_clients_sample_concurrently_without_duplicate_lines(tmp_path):
             thread.start()
 
         for thread in threads:
-            thread.join()
+            thread.join(timeout=10)
+
+        # No client should have failed or disconnected.
+        assert errors == []
+
+        # Every client should have completed.
+        assert len(results) == 10
 
         sampled_lines = [
             line
@@ -261,7 +275,10 @@ def test_ten_clients_sample_concurrently_without_duplicate_lines(tmp_path):
             for line in result
         ]
 
+        # 10 clients × 10 lines each.
         assert len(sampled_lines) == 100
+
+        # Every line should have been consumed exactly once.
         assert len(set(sampled_lines)) == 100
 
     finally:

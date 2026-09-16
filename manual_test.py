@@ -46,13 +46,13 @@ try:
     print(f"Loaded {loaded_count:,} lines")
     print(f"Load time: {load_time:.2f} seconds")
 
-    sampled_lines = client.sample(10000)
+    sampled_lines = client.sample(32767)
 
-    print("\nSampled 10000 lines:\n")
+    print("\nSampled 32767 lines:\n")
     # for line in sampled_lines:
     #     print(f"  {line}")
 
-    remaining_sample = client.sample(10000)
+    remaining_sample = client.sample(32767)
 
     print(
         f"\nSecond sample returned \n"
@@ -66,9 +66,14 @@ try:
 
 
     print("Sampled lines are the same?")
-    # print(remaining_sample == sampled_lines)
-    common = list(set(sampled_lines) & set(remaining_sample))
-    print(common)
+    common = set(sampled_lines) & set(remaining_sample)
+
+    print(f"Overlap between samples: {len(common)}")
+
+    if common:
+        print("WARNING: duplicate lines were sampled")
+    else:
+        print("No duplicate lines were sampled")
 
 
 finally:
